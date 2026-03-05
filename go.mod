@@ -1,4 +1,4 @@
-module gin-quickstart
+module B1K5-API
 
 go 1.25.7
 
