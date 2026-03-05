@@ -12,11 +12,7 @@ http://localhost:8080/api
 
 ### Autentikasi
 
-- api/login
-- api/register
+- POST api/login
+- POST api/register
 
-### Personalisasi
-
-### Consent
-
-### Apalah itu namanya
+> Note: rute lain menyusul
