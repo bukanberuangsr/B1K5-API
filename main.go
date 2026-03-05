@@ -1,6 +1,7 @@
 package main
 
 import (
+	controller "B1K5-API/controllers"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,27 +17,12 @@ func main() {
 	})
 
 	// Rute otentikasi
-	// login JWT token (hiks)
-	router.GET("/api/auth/login", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{
-			"message": "login",
-		})
-	})
 
-	// register
-	router.GET("/api/auth/register", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{
-			"message": "register",
-		})
-	})
+	auth := router.Group("api/auth")
+	{
+		auth.POST("/register", controller.Register)
+		auth.POST("/login", controller.Login)
+	}
 
-	// Rute User
-
-	// Rute Consent
-
-	// Rute Personalisasi
-
-	// Rute Admin
-
-	router.Run() // listens on port :8080
+	router.Run(":8000")
 }
