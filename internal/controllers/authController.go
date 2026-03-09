@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"B1K5-API/models"
+	"B1K5-API/internal/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
