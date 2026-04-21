@@ -2,12 +2,14 @@ package main
 
 import (
 	controller "B1K5-API/internal/controllers"
+	"B1K5-API/internal/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	utils.InitDB()
 	router := gin.Default()
 
 	router.GET("/api/test", func(ctx *gin.Context) {
