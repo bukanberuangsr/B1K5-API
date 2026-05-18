@@ -206,14 +206,14 @@ func GetUserActivityById(ctx *gin.Context) {
 
 	featureRows, err := utils.DB.Query(`
 		SELECT
-			feature,
-			COUNT(*) AS usage_count,
-			MAX(created_at)::text AS last_used_at
+		    ua.feature,
+		    COUNT(*) AS usage_count,
+		    MAX(ua.created_at)::text AS last_used_at
 		FROM user_activities ua
 		JOIN customers c ON c.id = ua.customer_id
 		WHERE c.id::text = $1 OR c.customer_id = $1
-		GROUP BY feature
-		ORDER BY usage_count DESC, last_used_at DESC
+		GROUP BY ua.feature
+		ORDER BY usage_count DESC, MAX(ua.created_at) DESC
 	`, id)
 
 	if err != nil {
