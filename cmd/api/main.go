@@ -32,15 +32,16 @@ func main() {
 
 	/*
 		 * Rute user
-			* Berkaitan dengan aktifitas user seperti
+			* Berkaitan dengan aktivitas user seperti
 			* ambil data profil, ambil data transaksi,
 			* dan segment
 	*/
 	users := router.Group("/api/users")
 	{
-		users.GET("/:id")
-		users.GET("/:id/activity")
-		users.GET("/:id/segment")
+		users.GET("/", controller.GetAllUsers)
+		users.GET("/:id", controller.GetUser)
+		users.GET("/:id/activity", controller.GetUserActivityById)
+		users.GET("/:id/segment", controller.GetUserSegmentationById)
 	}
 
 	/*
