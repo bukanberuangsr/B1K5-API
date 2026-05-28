@@ -1,15 +1,16 @@
 CREATE TABLE customers (
     id SERIAL PRIMARY KEY,
     customer_id VARCHAR(50) UNIQUE NOT NULL,
+    username VARCHAR(100),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'customer',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE customer_profiles (
     id SERIAL PRIMARY KEY,
     customer_id INT UNIQUE REFERENCES customers(id) ON DELETE CASCADE,
-    username VARCHAR(100),
     full_name VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

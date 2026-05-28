@@ -3,15 +3,16 @@ package models
 type Customer struct {
 	ID           int    `json:"id"`
 	CustomerID   string `json:"customer_id"`
+	Username     string `json:"username"`
 	Email        string `json:"email"`
 	PasswordHash string `json:"-"`
+	Role         string `json:"role"`
 	CreatedAt    string `json:"created_at"`
 }
 
 type CustomerProfile struct {
 	ID         int    `json:"id"`
 	CustomerID int    `json:"customer_id"`
-	Username   string `json:"username"`
 	FullName   string `json:"full_name"`
 	CreatedAt  string `json:"created_at"`
 }

@@ -14,6 +14,7 @@ type userResponse struct {
 	Email      string `json:"email"`
 	Username   string `json:"username"`
 	FullName   string `json:"full_name"`
+	Role       string `json:"role"`
 	CreatedAt  string `json:"created_at"`
 }
 
@@ -42,8 +43,9 @@ func GetUser(ctx *gin.Context) {
 			c.id,
 			c.customer_id,
 			c.email,
-			COALESCE(cp.username, ''),
+			COALESCE(c.username, ''),
 			COALESCE(cp.full_name, ''),
+			c.role,
 			c.created_at::text
 		FROM customers c
 		LEFT JOIN customer_profiles cp ON cp.customer_id = c.id
@@ -54,6 +56,7 @@ func GetUser(ctx *gin.Context) {
 		&user.Email,
 		&user.Username,
 		&user.FullName,
+		&user.Role,
 		&user.CreatedAt,
 	)
 
@@ -75,6 +78,7 @@ func GetUser(ctx *gin.Context) {
 		"message":    "user found",
 		"email":      user.Email,
 		"username":   user.Username,
+		"role":       user.Role,
 		"created_at": user.CreatedAt,
 	})
 }
@@ -85,8 +89,9 @@ func GetAllUsers(ctx *gin.Context) {
 			c.id,
 			c.customer_id,
 			c.email,
-			COALESCE(cp.username, ''),
+			COALESCE(c.username, ''),
 			COALESCE(cp.full_name, ''),
+			c.role,
 			c.created_at::text
 		FROM customers c
 		LEFT JOIN customer_profiles cp ON cp.customer_id = c.id
@@ -110,6 +115,7 @@ func GetAllUsers(ctx *gin.Context) {
 			&user.Email,
 			&user.Username,
 			&user.FullName,
+			&user.Role,
 			&user.CreatedAt,
 		); error != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -143,23 +149,23 @@ func GetUserActivityById(ctx *gin.Context) {
 		FrequentlyUsed []gin.H `json:"frequently_used_features"`
 	}
 
-	err := utils.DB.QueryRow(`
+	error := utils.DB.QueryRow(`
 		SELECT customer_id FROM customers WHERE id::text = $1 OR customer_id = $1
 	`, id).Scan(&response.CustomerID)
 
-	if err != nil {
-		if err == sql.ErrNoRows {
+	if error != nil {
+		if error == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, gin.H{
 				"error": "user not found",
 			})
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": error.Error()})
 		return
 	}
 
-	transactionRows, err := utils.DB.Query(`
+	transactionRows, error := utils.DB.Query(`
 		SELECT
 			t.trx_id,
 			t.type,
@@ -173,8 +179,8 @@ func GetUserActivityById(ctx *gin.Context) {
 		ORDER BY t.created_at DESC
 	`, id)
 
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": error.Error()})
 		return
 	}
 	defer transactionRows.Close()
@@ -204,7 +210,7 @@ func GetUserActivityById(ctx *gin.Context) {
 		return
 	}
 
-	featureRows, err := utils.DB.Query(`
+	featureRows, error := utils.DB.Query(`
 		SELECT
 		    ua.feature,
 		    COUNT(*) AS usage_count,
@@ -216,8 +222,8 @@ func GetUserActivityById(ctx *gin.Context) {
 		ORDER BY usage_count DESC, MAX(ua.created_at) DESC
 	`, id)
 
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": error.Error()})
 		return
 	}
 	defer featureRows.Close()
