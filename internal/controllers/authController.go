@@ -20,6 +20,7 @@ type registeredAccount struct {
 	ID         int    `json:"id"`
 	CustomerID string `json:"customer_id"`
 	Email      string `json:"email"`
+	Role       string `json:"role"`
 }
 
 func Register(ctx *gin.Context) {
@@ -78,6 +79,7 @@ func Register(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
 			"message":     "Register success",
 			"customer_id": registered[0].CustomerID,
+			"role":        registered[0].Role,
 		})
 		return
 	}
@@ -104,6 +106,7 @@ func insertAccounts(accounts []registerInput) ([]registeredAccount, error) {
 		}
 
 		customerID := utils.GenerateCustomerID(id)
+		role := "customer"
 
 		hash, error := utils.HashPassword(account.Password)
 		if error != nil {
@@ -111,17 +114,17 @@ func insertAccounts(accounts []registerInput) ([]registeredAccount, error) {
 		}
 
 		_, error = tx.Exec(`
-			INSERT INTO customers (id, customer_id, email, password_hash)
-			VALUES ($1, $2, $3, $4)
-		`, id, customerID, account.Email, hash)
+			INSERT INTO customers (id, customer_id, username, email, password_hash, role)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`, id, customerID, account.Username, account.Email, hash, role)
 		if error != nil {
 			return nil, error
 		}
 
 		_, error = tx.Exec(`
-			INSERT INTO customer_profiles (customer_id, username, full_name)
-			VALUES ($1, $2, $3)
-		`, id, account.Username, account.FullName)
+			INSERT INTO customer_profiles (customer_id, full_name)
+			VALUES ($1, $2)
+		`, id, account.FullName)
 		if error != nil {
 			return nil, error
 		}
@@ -130,6 +133,7 @@ func insertAccounts(accounts []registerInput) ([]registeredAccount, error) {
 			ID:         id,
 			CustomerID: customerID,
 			Email:      account.Email,
+			Role:       role,
 		})
 	}
 
@@ -153,15 +157,20 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
+	var userID int
+	var customerID string
 	var hash string
+	var role string
 
 	error := utils.DB.QueryRow(`
-		SELECT password_hash FROM customers WHERE customer_id=$1
-	`, input.CustomerID).Scan(&hash)
+		SELECT id, customer_id, password_hash, role
+		FROM customers
+		WHERE customer_id = $1
+	`, input.CustomerID).Scan(&userID, &customerID, &hash, &role)
 
 	if error != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": error.Error(),
+			"error": "invalid customer_id or password",
 		})
 		return
 	}
@@ -173,9 +182,19 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
+	token, error := utils.GenerateJWT(userID, customerID, role)
+	if error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": error.Error(),
+		})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"message":     "Login success",
-		"customer_id": input.CustomerID,
+		"customer_id": customerID,
+		"role":        role,
+		"token":       token,
 	})
 
 }

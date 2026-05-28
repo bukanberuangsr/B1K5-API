@@ -2,6 +2,7 @@ package main
 
 import (
 	controller "B1K5-API/internal/controllers"
+	"B1K5-API/internal/middleware"
 	"B1K5-API/internal/utils"
 	"net/http"
 
@@ -37,11 +38,12 @@ func main() {
 			* dan segment
 	*/
 	users := router.Group("/api/users")
+	users.Use(middleware.AuthMiddleware())
 	{
-		users.GET("/", controller.GetAllUsers)
-		users.GET("/:id", controller.GetUser)
-		users.GET("/:id/activity", controller.GetUserActivityById)
-		users.GET("/:id/segment", controller.GetUserSegmentationById)
+		users.GET("/", middleware.RequireRole("admin"), controller.GetAllUsers)
+		users.GET("/:id", middleware.RequireSelfOrRole("admin"), controller.GetUser)
+		users.GET("/:id/activity", middleware.RequireSelfOrRole("admin"), controller.GetUserActivityById)
+		users.GET("/:id/segment", middleware.RequireSelfOrRole("admin"), controller.GetUserSegmentationById)
 	}
 
 	/*
@@ -51,13 +53,15 @@ func main() {
 			* ke pengguna
 	*/
 	personalization := router.Group("/api/personalization")
+	personalization.Use(middleware.AuthMiddleware())
 	{
-		personalization.GET("/:id")
+		personalization.GET("/:id", middleware.RequireSelfOrRole("admin"), controller.GetPersonalizationById)
 	}
 
 	recommendation := router.Group("/api/recommendation")
+	recommendation.Use(middleware.AuthMiddleware())
 	{
-		recommendation.GET("/:id")
+		recommendation.GET("/:id", middleware.RequireSelfOrRole("admin"))
 	}
 
 	/*
@@ -66,12 +70,13 @@ func main() {
 			* sebuah file/database (misalnya mongodb)
 	*/
 	analytics := router.Group("/api/analytics")
+	analytics.Use(middleware.AuthMiddleware(), middleware.RequireRole("admin"))
 	{
 		analytics.GET("/metrics") // TODO: protect with auth
 		analytics.POST("/event")
 	}
 
-	router.POST("/api/segments/update", func(ctx *gin.Context) {
+	router.POST("/api/segments/update", middleware.AuthMiddleware(), middleware.RequireRole("admin"), func(ctx *gin.Context) {
 		// TODO: update segmentasi dari divisi AI/ML
 	})
 
