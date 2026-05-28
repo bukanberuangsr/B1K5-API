@@ -1,14 +1,10 @@
 # API Capstone C1 - Kelompok 5
 
-API untuk Capstone Project kasus B1. Dikelola oleh Kelompok 5
+API untuk Capstone Project kasus B1. Dikelola oleh Kelompok 5.
 
-## Note
+## Menjalankan Project
 
-Pastikan `Docker` dan `Docker Compose` sudah terpasang pada perangkat anda
-sebelum menjalankannya.
-Jika belum, ikuti panduan pada link berikut: <https://docs.docker.com/compose/install/>
-
-Untuk menjalankan proyek lakukan langkah berikut:
+Pastikan `Docker` dan `Docker Compose` sudah terpasang.
 
 ```sh
 git clone https://www.github.com/bukanberuangsr/B1K5-API.git
@@ -16,102 +12,384 @@ cd B1K5-API
 docker compose up -d --build
 ```
 
-Untuk reload docker image:
+Untuk reload container:
 
 ```sh
 docker compose down
-docker compose up -d
+docker compose up -d --build
 ```
 
-## Penjelasan Rute
+Base URL:
 
-Semua rute API dimulai mengikuti URL dasar:
-
-```uri
+```text
 http://localhost:8080/api
 ```
 
-### Autentikasi
+Health check:
 
-- POST api/login
+```http
+GET /api/test
+```
 
-  Request
+## Auth
 
-  ```json
+API memakai JWT Bearer token. Endpoint selain register/login membutuhkan header:
+
+```http
+Authorization: Bearer <token>
+```
+
+Role yang digunakan:
+
+```text
+customer
+admin
+```
+
+Aturan akses:
+
+| Role | Akses |
+| --- | --- |
+| `customer` | Hanya boleh mengakses data miliknya sendiri |
+| `admin` | Bisa mengakses semua user dan endpoint admin |
+
+Admin seed:
+
+```text
+customer_id: ADM-000001
+password: 123456
+role: admin
+```
+
+Customer seed:
+
+```text
+CUS-000001 sampai CUS-000006
+password: 123456
+role: customer
+```
+
+`CUS-000006` sengaja tidak memiliki data segmentasi, tetapi memiliki aktivitas `transfer` dan `topup`.
+
+## Autentikasi
+
+### Register
+
+```http
+POST /api/auth/register
+```
+
+Request single account:
+
+```json
+{
+  "full_name": "Arna Pratama",
+  "username": "arna",
+  "email": "arna@mail.com",
+  "password": "123456"
+}
+```
+
+Request multiple accounts:
+
+```json
+[
   {
-    "customer_id": "CUS-000001",
-    "password": "123456"
-  }
-  ```
-
-  Response
-  ```json
-  {
-    "customer_id": "CUS-000001",
-    "message": "Login success",
-  }
-  ```
-
-- POST api/register
-
-  Request
-  ```json
-  {
-    "full_name": "Arna",
+    "full_name": "Arna Pratama",
+    "username": "arna",
     "email": "arna@mail.com",
     "password": "123456"
-  }
-  // atau
-  [
-    {
-      "full_name": "Arna",
-      "email": "arna@mail.com",
-      "password": "123456"
-    },
-    {
-      "full_name": "Maya",
-      "email": "maya@mail.com",
-      "password": "qwerty"
-    } 
-  ]
-  ```
-  
-  Response
-
-  ```json
+  },
   {
-    "accounts": [
+    "full_name": "Maya Lestari",
+    "username": "maya",
+    "email": "maya@mail.com",
+    "password": "qwerty"
+  }
+]
+```
+
+Response single account:
+
+```json
+{
+  "message": "Register success",
+  "customer_id": "CUS-000007",
+  "role": "customer"
+}
+```
+
+Response multiple accounts:
+
+```json
+{
+  "message": "Register success",
+  "accounts": [
+    {
+      "id": 7,
+      "customer_id": "CUS-000007",
+      "email": "arna@mail.com",
+      "role": "customer"
+    }
+  ]
+}
+```
+
+Catatan: register publik selalu membuat role `customer`. Role `admin` dibuat lewat seed atau update database.
+
+### Login
+
+```http
+POST /api/auth/login
+```
+
+Request:
+
+```json
+{
+  "customer_id": "CUS-000001",
+  "password": "123456"
+}
+```
+
+Response:
+
+```json
+{
+  "message": "Login success",
+  "customer_id": "CUS-000001",
+  "role": "customer",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+Contoh penggunaan token:
+
+```sh
+curl http://localhost:8080/api/users/CUS-000001 \
+  -H "Authorization: Bearer <token>"
+```
+
+## User
+
+Semua endpoint user membutuhkan JWT.
+
+### Get All Users
+
+```http
+GET /api/users/
+```
+
+Akses: `admin`.
+
+Response:
+
+```json
+{
+  "message": "all users",
+  "users": [
+    {
+      "id": 1,
+      "customer_id": "CUS-000001",
+      "email": "arna@mail.com",
+      "username": "arna",
+      "full_name": "Arna Pratama",
+      "role": "customer",
+      "created_at": "2026-05-26 10:00:00"
+    }
+  ]
+}
+```
+
+### Get User
+
+```http
+GET /api/users/:id
+```
+
+Akses: pemilik akun atau `admin`.
+
+`:id` bisa memakai `id` internal, misalnya `1`, atau `customer_id`, misalnya `CUS-000001`.
+
+Response:
+
+```json
+{
+  "message": "user found",
+  "email": "arna@mail.com",
+  "username": "arna",
+  "role": "customer",
+  "created_at": "2026-05-26 10:00:00"
+}
+```
+
+### Get User Activity
+
+```http
+GET /api/users/:id/activity
+```
+
+Akses: pemilik akun atau `admin`.
+
+Response:
+
+```json
+{
+  "message": "user activity found",
+  "data": {
+    "customer_id": "CUS-000006",
+    "transactions": [
       {
-        "id": 1,
-        "customer_id": "CUS-000001",
-        "email": "arna@mail.com"
-      },
-      {
-        "id": 2,
-        "customer_id": "CUS-000002",
-        "email": "maya@mail.com"
+        "trx_id": "TRX-000006",
+        "type": "transfer",
+        "amount": 250000,
+        "status": "success",
+        "created_at": "2026-05-26 10:00:00"
       }
     ],
-    "message": "Register success"
+    "frequently_used_features": [
+      {
+        "feature": "transfer",
+        "usage_count": 2,
+        "last_used_at": "2026-05-26 10:00:00"
+      }
+    ]
   }
-  ```
+}
+```
 
-### User
+### Get User Segment
 
-- GET /api/users/:id
-- GET /api/users/:id/activity
-- GET /api/users/:id/segment
+```http
+GET /api/users/:id/segment
+```
 
-### Personalisasi & Rekomendasi
+Akses: pemilik akun atau `admin`.
 
-- GET /api/personalization/:id
-- GET /api/recommendation/:id
+Response jika user memiliki segmentasi:
 
-### Analitik
+```json
+{
+  "message": "user segment found",
+  "customer_id": "CUS-000001",
+  "segments": [
+    {
+      "id": 1,
+      "name": "investor",
+      "description": "Nasabah dengan sinyal ketertarikan investasi dan saldo rata-rata tinggi.",
+      "confidence": 0.91,
+      "assigned_at": "2026-05-26 10:00:00",
+      "recommendations": [
+        {
+          "id": 1,
+          "feature": "promo reksa dana & deposito",
+          "reason": "Profil nasabah menunjukkan ketertarikan pada produk investasi dan saldo rata-rata yang mendukung pertumbuhan aset.",
+          "priority": 1
+        }
+      ]
+    }
+  ]
+}
+```
 
-- GET /api/analytics/metrics
-- POST /api/analytics/event
+Response jika user belum memiliki segmentasi:
 
-### Segment
+```json
+{
+  "error": "user segment not found"
+}
+```
 
-- POST /api/segments/update
+## Personalisasi
+
+### Get Homepage Personalization
+
+```http
+GET /api/personalization/:id
+```
+
+Akses: pemilik akun atau `admin`.
+
+Endpoint ini menghasilkan konfigurasi personalisasi untuk homepage berdasarkan aktivitas, segmentasi, dan rekomendasi user.
+
+Response:
+
+```json
+{
+  "message": "personalization config found",
+  "data": {
+    "customer_id": "CUS-000001",
+    "homepage": {
+      "primary_feature": "investment",
+      "segment": {
+        "id": 1,
+        "name": "investor",
+        "confidence": 0.91
+      },
+      "quick_actions": [
+        {
+          "feature": "investment",
+          "usage_count": 1,
+          "last_used_at": "2026-05-26 10:00:00"
+        }
+      ],
+      "recommended_sections": [
+        {
+          "id": 1,
+          "feature": "promo reksa dana & deposito",
+          "reason": "Profil nasabah menunjukkan ketertarikan pada produk investasi dan saldo rata-rata yang mendukung pertumbuhan aset.",
+          "priority": 1
+        }
+      ]
+    }
+  }
+}
+```
+
+Untuk user tanpa segmentasi seperti `CUS-000006`, `segment` akan kosong dan `recommended_sections` akan kosong, tetapi `quick_actions` tetap bisa terisi dari `user_activities`.
+
+## Rekomendasi
+
+```http
+GET /api/recommendation/:id
+```
+
+Akses: pemilik akun atau `admin`.
+
+Status: route sudah diproteksi JWT/RBAC, tetapi handler rekomendasi khusus belum diimplementasikan.
+
+## Analitik
+
+```http
+GET /api/analytics/metrics
+POST /api/analytics/event
+```
+
+Akses: `admin`.
+
+Status: route sudah diproteksi JWT/RBAC, tetapi handler analytics belum diimplementasikan.
+
+## Segment
+
+```http
+POST /api/segments/update
+```
+
+Akses: `admin`.
+
+Status: route sudah diproteksi JWT/RBAC, tetapi proses update segmentasi masih TODO.
+
+## Status Code Umum
+
+| Status | Arti |
+| --- | --- |
+| `200` | Request berhasil |
+| `400` | Request body tidak valid |
+| `401` | Token tidak ada, token tidak valid, atau login gagal |
+| `403` | Role tidak punya akses |
+| `404` | Data tidak ditemukan |
+| `500` | Error server/database |
+
+## Catatan Segmentasi
+
+Segmentasi bisa berasal dari pola penggunaan fitur, misalnya `transfer`, `topup`, `bill_payment`, atau `investment`. Namun segmentasi sebaiknya tidak hanya memakai jumlah penggunaan mentah. Kombinasikan dengan frekuensi, rasio fitur, waktu terakhir aktif, nominal transaksi, login frequency, dan durasi sesi agar hasilnya lebih representatif.
