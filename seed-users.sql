@@ -1,26 +1,31 @@
 -- Seed data based on the capstone notebook segmentation output.
 -- Default password for every seeded customer: 123456
 
-INSERT INTO customers (id, customer_id, email, password_hash)
+INSERT INTO customers (id, customer_id, username, email, password_hash, role)
 VALUES
-    (1, 'CUS-000001', 'arna@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y'),
-    (2, 'CUS-000002', 'maya@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y'),
-    (3, 'CUS-000003', 'akhtar@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y'),
-    (4, 'CUS-000004', 'sinta@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y'),
-    (5, 'CUS-000005', 'bima@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y')
-ON CONFLICT (customer_id) DO UPDATE SET
-    email = EXCLUDED.email,
-    password_hash = EXCLUDED.password_hash;
-
-INSERT INTO customer_profiles (id, customer_id, username, full_name)
-VALUES
-    (1, 1, 'arna', 'Arna Pratama'),
-    (2, 2, 'maya', 'Maya Lestari'),
-    (3, 3, 'akhtar', 'Akhtar Ramadhan'),
-    (4, 4, 'sinta', 'Sinta Maharani'),
-    (5, 5, 'bima', 'Bima Saputra')
+    (1, 'CUS-000001', 'arna', 'arna@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y', 'customer'),
+    (2, 'CUS-000002', 'maya', 'maya@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y', 'customer'),
+    (3, 'CUS-000003', 'akhtar', 'akhtar@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y', 'customer'),
+    (4, 'CUS-000004', 'sinta', 'sinta@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y', 'customer'),
+    (5, 'CUS-000005', 'bima', 'bima@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y', 'customer'),
+    (6, 'ADM-000001', 'admin', 'admin@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y', 'admin'),
+    (7, 'CUS-000006', 'nabila', 'nabila@mail.com', '$2a$10$onHqlNmwgNJ8HLCHO0FX9.NTbVqGW44Nnoz.CquKQEdDt9THdFA3y', 'customer')
 ON CONFLICT (customer_id) DO UPDATE SET
     username = EXCLUDED.username,
+    email = EXCLUDED.email,
+    password_hash = EXCLUDED.password_hash,
+    role = EXCLUDED.role;
+
+INSERT INTO customer_profiles (id, customer_id, full_name)
+VALUES
+    (1, 1, 'Arna Pratama'),
+    (2, 2, 'Maya Lestari'),
+    (3, 3, 'Akhtar Ramadhan'),
+    (4, 4, 'Sinta Maharani'),
+    (5, 5, 'Bima Saputra'),
+    (6, 6, 'Admin'),
+    (7, 7, 'Nabila Putri')
+ON CONFLICT (customer_id) DO UPDATE SET
     full_name = EXCLUDED.full_name;
 
 INSERT INTO accounts (id, customer_id, account_no, type, balance, currency)
@@ -29,7 +34,8 @@ VALUES
     (2, 2, '1000000002', 'savings', 5773346.00, 'IDR'),
     (3, 3, '1000000003', 'e_wallet', 46753495.00, 'IDR'),
     (4, 4, '1000000004', 'savings', 2975891.00, 'IDR'),
-    (5, 5, '1000000005', 'e_wallet', 58521945.00, 'IDR')
+    (5, 5, '1000000005', 'e_wallet', 58521945.00, 'IDR'),
+    (6, 7, '1000000006', 'savings', 12500000.00, 'IDR')
 ON CONFLICT (account_no) DO UPDATE SET
     type = EXCLUDED.type,
     balance = EXCLUDED.balance,
@@ -41,7 +47,10 @@ VALUES
     (2, 2, 'TRX-000002', 'bill_payment', 450000.00, 'success'),
     (3, 3, 'TRX-000003', 'topup', 300000.00, 'success'),
     (4, 4, 'TRX-000004', 'transfer', 150000.00, 'success'),
-    (5, 5, 'TRX-000005', 'topup', 500000.00, 'success')
+    (5, 5, 'TRX-000005', 'topup', 500000.00, 'success'),
+    (6, 6, 'TRX-000006', 'transfer', 250000.00, 'success'),
+    (7, 6, 'TRX-000007', 'transfer', 175000.00, 'success'),
+    (8, 6, 'TRX-000008', 'topup', 100000.00, 'success')
 ON CONFLICT (trx_id) DO UPDATE SET
     type = EXCLUDED.type,
     amount = EXCLUDED.amount,
@@ -83,6 +92,27 @@ VALUES
         'topup_heavy',
         'e_wallet_link',
         '{"age":38,"monthly_income":36422146,"occupation":"employee","transaction_frequency_monthly":105,"transfer_ratio":0.23,"payment_ratio":0.37,"topup_ratio":0.67,"investment_activity":0,"login_frequency_weekly":36,"avg_session_duration_min":9,"recent_transaction_days":2,"dominant_activity":"topup_heavy","frequent_product":"e_wallet_link","customer_type":"nasabah prioritas","segment":"digital_spender"}'
+    ),
+    (
+        6,
+        7,
+        'feature_usage',
+        'transfer',
+        '{"source":"seed","note":"customer has activity but no segmentation yet"}'
+    ),
+    (
+        7,
+        7,
+        'feature_usage',
+        'transfer',
+        '{"source":"seed","note":"customer has activity but no segmentation yet"}'
+    ),
+    (
+        8,
+        7,
+        'feature_usage',
+        'topup',
+        '{"source":"seed","note":"customer has activity but no segmentation yet"}'
     )
 ON CONFLICT (id) DO UPDATE SET
     customer_id = EXCLUDED.customer_id,
