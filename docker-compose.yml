@@ -13,6 +13,7 @@ services:
       - DB_PASSWORD=secret123
       - DB_NAME=b1k5_api
       - DB_DRIVER=postgres
+      - JWT_SECRET=b1k5-local-jwt-secret-change-me
     restart: unless-stopped
 
   postgres:
