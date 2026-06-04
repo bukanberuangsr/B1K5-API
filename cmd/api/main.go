@@ -58,10 +58,16 @@ func main() {
 		personalization.GET("/:id", middleware.RequireSelfOrRole("admin"), controller.GetPersonalizationById)
 	}
 
+	recommendations := router.Group("/api/recommendations")
+	recommendations.Use(middleware.AuthMiddleware())
+	{
+		recommendations.GET("/:id", middleware.RequireSelfOrRole("admin"), controller.GetRecommendationByUserID)
+	}
+
 	recommendation := router.Group("/api/recommendation")
 	recommendation.Use(middleware.AuthMiddleware())
 	{
-		recommendation.GET("/:id", middleware.RequireSelfOrRole("admin"))
+		recommendation.GET("/:id", middleware.RequireSelfOrRole("admin"), controller.GetRecommendationByUserID)
 	}
 
 	/*
@@ -70,15 +76,18 @@ func main() {
 			* sebuah file/database (misalnya mongodb)
 	*/
 	analytics := router.Group("/api/analytics")
-	analytics.Use(middleware.AuthMiddleware(), middleware.RequireRole("admin"))
+	analytics.Use(middleware.AuthMiddleware())
 	{
-		analytics.GET("/metrics") // TODO: protect with auth
-		analytics.POST("/event")
+		analytics.GET("/metrics", middleware.RequireRole("admin"), controller.GetAnalyticsMetrics)
+		analytics.POST("/event", controller.CreateAnalyticsEvent)
 	}
 
-	router.POST("/api/segments/update", middleware.AuthMiddleware(), middleware.RequireRole("admin"), func(ctx *gin.Context) {
-		// TODO: update segmentasi dari divisi AI/ML
-	})
+	router.POST(
+		"/api/segments/update",
+		middleware.AuthMiddleware(),
+		middleware.RequireRole("admin"),
+		controller.UpdateUserSegments,
+	)
 
 	router.Run(":8080")
 }
