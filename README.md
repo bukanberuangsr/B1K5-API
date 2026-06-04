@@ -352,22 +352,139 @@ Untuk user tanpa segmentasi seperti `CUS-000006`, `segment` akan kosong dan `rec
 
 ```http
 GET /api/recommendation/:id
+GET /api/recommendations/:id
 ```
 
 Akses: pemilik akun atau `admin`.
 
-Status: route sudah diproteksi JWT/RBAC, tetapi handler rekomendasi khusus belum diimplementasikan.
+Kedua endpoint di atas memakai handler yang sama. `:id` bisa memakai `id` internal atau `customer_id`.
+
+Endpoint ini mengembalikan rekomendasi berdasarkan segmentasi user. Jika user belum memiliki segmentasi, rekomendasi dibuat dari fitur yang paling sering digunakan user.
+
+Response dari rekomendasi segmentasi:
+
+```json
+{
+  "message": "recommendations found",
+  "customer_id": "CUS-000001",
+  "recommendations": [
+    {
+      "id": 1,
+      "feature": "promo reksa dana & deposito",
+      "reason": "Profil nasabah menunjukkan ketertarikan pada produk investasi dan saldo rata-rata yang mendukung pertumbuhan aset.",
+      "priority": 1,
+      "source": "segment",
+      "segment": "investor",
+      "confidence": 0.91
+    }
+  ]
+}
+```
+
+Response fallback dari aktivitas user:
+
+```json
+{
+  "message": "recommendations found",
+  "customer_id": "CUS-000006",
+  "recommendations": [
+    {
+      "feature": "transfer",
+      "reason": "Fitur ini relevan karena sering digunakan oleh user.",
+      "priority": 1,
+      "source": "activity",
+      "usage_count": 2
+    }
+  ]
+}
+```
 
 ## Analitik
 
+Semua endpoint analytics membutuhkan JWT.
+
+### Get Analytics Metrics
+
 ```http
 GET /api/analytics/metrics
-POST /api/analytics/event
 ```
 
 Akses: `admin`.
 
-Status: route sudah diproteksi JWT/RBAC, tetapi handler analytics belum diimplementasikan.
+Response:
+
+```json
+{
+  "message": "analytics metrics found",
+  "metrics": {
+    "total_events": 10,
+    "impressions": 6,
+    "clicks": 2,
+    "engagements": 3,
+    "ctr": 0.3333333333333333
+  },
+  "top_features": [
+    {
+      "feature": "investment",
+      "event_count": 5,
+      "clicks": 2
+    }
+  ]
+}
+```
+
+### Create Analytics Event
+
+```http
+POST /api/analytics/event
+```
+
+Akses: user login atau `admin`.
+
+Jika `customer_id` tidak dikirim, event akan dibuat untuk user dari token. User dengan role `customer` hanya boleh membuat event untuk dirinya sendiri. Role `admin` bisa membuat event untuk user lain.
+
+Request:
+
+```json
+{
+  "event_type": "recommendation_click",
+  "feature": "investment",
+  "metadata": {
+    "source": "homepage"
+  }
+}
+```
+
+Request dengan `customer_id` eksplisit:
+
+```json
+{
+  "customer_id": "CUS-000001",
+  "event_type": "recommendation_click",
+  "feature": "investment",
+  "metadata": {
+    "source": "homepage"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "message": "analytics event created",
+  "event": {
+    "id": 1,
+    "customer_id": "CUS-000001",
+    "event_type": "recommendation_click",
+    "feature": "investment",
+    "metadata": {
+      "source": "homepage"
+    },
+    "created_at": "2026-05-26 10:00:00"
+  }
+}
+```
 
 ## Segment
 
@@ -377,13 +494,48 @@ POST /api/segments/update
 
 Akses: `admin`.
 
-Status: route sudah diproteksi JWT/RBAC, tetapi proses update segmentasi masih TODO.
+Endpoint ini melakukan insert/update segmentasi user.
+
+Request:
+
+```json
+{
+  "segments": [
+    {
+      "customer_id": "CUS-000001",
+      "segment_name": "investor",
+      "description": "Nasabah dengan sinyal ketertarikan investasi dan saldo rata-rata tinggi.",
+      "confidence": 0.91
+    }
+  ]
+}
+```
+
+`confidence` harus berada di rentang `0` sampai `1`.
+
+Response:
+
+```json
+{
+  "message": "user segments updated",
+  "updated": 1,
+  "results": [
+    {
+      "customer_id": "CUS-000001",
+      "segment_name": "investor",
+      "confidence": 0.91,
+      "action": "updated"
+    }
+  ]
+}
+```
 
 ## Status Code Umum
 
 | Status | Arti |
 | --- | --- |
 | `200` | Request berhasil |
+| `201` | Data berhasil dibuat |
 | `400` | Request body tidak valid |
 | `401` | Token tidak ada, token tidak valid, atau login gagal |
 | `403` | Role tidak punya akses |
