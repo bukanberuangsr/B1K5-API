@@ -31,6 +31,8 @@ Health check:
 GET /api/test
 ```
 
+Panduan setup API untuk Flutter app tersedia di [usage.md](usage.md).
+
 ## Auth
 
 API memakai JWT Bearer token. Endpoint selain register/login membutuhkan header:
