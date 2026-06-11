@@ -29,6 +29,7 @@ func main() {
 	{
 		auth.POST("/register", controller.Register)
 		auth.POST("/login", controller.Login)
+		auth.POST("/loginId", controller.LoginById)
 	}
 
 	/*

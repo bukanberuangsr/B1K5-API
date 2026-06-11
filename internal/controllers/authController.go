@@ -198,3 +198,57 @@ func Login(ctx *gin.Context) {
 	})
 
 }
+
+func LoginById(ctx *gin.Context) {
+	var input struct {
+		CustomerID string `json:"customer_id"`
+	}
+
+	if error := ctx.ShouldBindJSON(&input); error != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": error.Error(),
+		})
+		return
+	}
+
+	var userID int
+	var customerID string
+	// var hash string
+	var role string
+
+	error := utils.DB.QueryRow(`
+		SELECT id, customer_id, role
+		FROM customers
+		WHERE customer_id = $1
+	`, input.CustomerID).Scan(&userID, &customerID, &role)
+
+	if error != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid customer_id or password",
+		})
+		return
+	}
+
+	// if !utils.CheckPassword(hash, input.Password) {
+	// 	ctx.JSON(http.StatusUnauthorized, gin.H{
+	// 		"error": "Wrong password",
+	// 	})
+	// 	return
+	// }
+
+	token, error := utils.GenerateJWT(userID, customerID, role)
+	if error != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": error.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":     "Login success",
+		"customer_id": customerID,
+		"role":        role,
+		"token":       token,
+	})
+
+}
