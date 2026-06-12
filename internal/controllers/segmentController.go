@@ -151,9 +151,11 @@ func upsertSegment(tx *sql.Tx, name string, description string) (int, error) {
 func upsertUserSegment(tx *sql.Tx, customerID int, segmentID int, confidence float64) (string, error) {
 	result, err := tx.Exec(`
 		UPDATE user_segments
-		SET confidence = $3,
+		SET
+			segment_id = $2,
+			confidence = $3,
 			created_at = CURRENT_TIMESTAMP
-		WHERE customer_id = $1 AND segment_id = $2
+		WHERE customer_id = $1
 	`, customerID, segmentID, confidence)
 	if err != nil {
 		return "", err

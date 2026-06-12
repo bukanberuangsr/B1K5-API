@@ -61,9 +61,9 @@ CREATE TABLE segments (
 
 CREATE TABLE user_segments (
     id SERIAL PRIMARY KEY,
-    customer_id INT REFERENCES customers(id) ON DELETE CASCADE,
-    segment_id INT REFERENCES segments(id) ON DELETE CASCADE,
-    confidence FLOAT,
+    customer_id INT UNIQUE NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    segment_id INT NOT NULL REFERENCES segments(id) ON DELETE CASCADE,
+    confidence FLOAT NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
