@@ -143,117 +143,22 @@ func GetAllUsers(ctx *gin.Context) {
 func GetUserActivityById(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	var response struct {
-		CustomerID     string  `json:"customer_id"`
-		Transactions   []gin.H `json:"transactions"`
-		FrequentlyUsed []gin.H `json:"frequently_used_features"`
-	}
-
-	error := utils.DB.QueryRow(`
-		SELECT customer_id FROM customers WHERE id::text = $1 OR customer_id = $1
-	`, id).Scan(&response.CustomerID)
-
-	if error != nil {
-		if error == sql.ErrNoRows {
+	data, err := getUserActivityData(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, gin.H{
 				"error": "user not found",
 			})
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": error.Error()})
-		return
-	}
-
-	transactionRows, error := utils.DB.Query(`
-		SELECT
-			t.trx_id,
-			t.type,
-			t.amount,
-			t.status,
-			t.created_at::text
-		FROM transactions t
-		JOIN accounts a ON a.id = t.account_id
-		JOIN customers c ON c.id = a.customer_id
-		WHERE c.id::text = $1 OR c.customer_id = $1
-		ORDER BY t.created_at DESC
-	`, id)
-
-	if error != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": error.Error()})
-		return
-	}
-	defer transactionRows.Close()
-
-	response.Transactions = []gin.H{}
-
-	for transactionRows.Next() {
-		var trxID, trxType, status, createdAt string
-		var amount float64
-
-		if err := transactionRows.Scan(&trxID, &trxType, &amount, &status, &createdAt); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		response.Transactions = append(response.Transactions, gin.H{
-			"trx_id":     trxID,
-			"type":       trxType,
-			"amount":     amount,
-			"status":     status,
-			"created_at": createdAt,
-		})
-	}
-
-	if err := transactionRows.Err(); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	featureRows, error := utils.DB.Query(`
-		SELECT
-		    ua.feature,
-		    COUNT(*) AS usage_count,
-		    MAX(ua.created_at)::text AS last_used_at
-		FROM user_activities ua
-		JOIN customers c ON c.id = ua.customer_id
-		WHERE c.id::text = $1 OR c.customer_id = $1
-		GROUP BY ua.feature
-		ORDER BY usage_count DESC, MAX(ua.created_at) DESC
-	`, id)
-
-	if error != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": error.Error()})
-		return
-	}
-	defer featureRows.Close()
-
-	response.FrequentlyUsed = []gin.H{}
-
-	for featureRows.Next() {
-		var feature, lastUsedAt string
-		var usageCount int
-
-		if err := featureRows.Scan(&feature, &usageCount, &lastUsedAt); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		response.FrequentlyUsed = append(response.FrequentlyUsed, gin.H{
-			"feature":      feature,
-			"usage_count":  usageCount,
-			"last_used_at": lastUsedAt,
-		})
-	}
-
-	if err := featureRows.Err(); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "user activity found",
-		"data":    response,
+		"data":    data,
 	})
 }
 

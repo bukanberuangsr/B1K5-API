@@ -490,13 +490,17 @@ Response:
 
 ## Segment
 
+Ada dua cara update segmentasi user: batch manual (`/api/segments/update`) dan prediksi real-time per user lewat model ML (`/api/users/:id/segment/predict`).
+
+### Update Manual / Batch
+
 ```http
 POST /api/segments/update
 ```
 
 Akses: `admin`.
 
-Endpoint ini melakukan insert/update segmentasi user.
+Endpoint ini melakukan insert/update segmentasi user berdasarkan nilai yang dikirim langsung di request body. Dipakai oleh `assets/sync_segments.py` untuk sinkronisasi batch/cron.
 
 Request:
 
@@ -532,6 +536,31 @@ Response:
 }
 ```
 
+### Prediksi Real-time (ML)
+
+```http
+POST /api/users/:id/segment/predict
+```
+
+Akses: pemilik akun atau `admin`.
+
+Endpoint ini mengambil data transaksi & fitur user dari database, mengirimkannya ke service ML (`ml-service`, lihat [Arsitektur ML](#arsitektur-ml)) untuk diproses lewat pipeline `scaler → PCA → KMeans`, lalu hasil prediksinya langsung di-upsert ke `segments` dan `user_segments` — tanpa perlu kirim `segment_name`/`confidence` manual seperti endpoint batch di atas.
+
+Response:
+
+```json
+{
+  "message": "segment predicted and updated",
+  "customer_id": "CUS-000001",
+  "segment_name": "investor",
+  "description": "Nasabah dengan sinyal ketertarikan investasi dan saldo rata-rata tinggi. Fitur dominan: investment. Total aktivitas terdeteksi: 2.",
+  "confidence": 0.47,
+  "action": "updated"
+}
+```
+
+`action` bernilai `"updated"` jika user sudah punya segmen sebelumnya, atau `"inserted"` jika ini segmentasi pertamanya.
+
 ## Status Code Umum
 
 | Status | Arti |
@@ -543,6 +572,32 @@ Response:
 | `403` | Role tidak punya akses |
 | `404` | Data tidak ditemukan |
 | `500` | Error server/database |
+
+## Arsitektur ML
+
+Model segmentasi (`scaler.pkl`, `pca_model.pkl`, `kmeans_model.pkl`, `segment_map.pkl` di [machine-learning/](machine-learning/)) hasil training scikit-learn, dibungkus jadi service HTTP terpisah supaya bisa dipanggil dari Go API:
+
+```text
+Go API (b1k5-api) --HTTP--> ML Service (b1k5-ml-service, FastAPI) --joblib--> scaler/PCA/KMeans
+```
+
+Kedua container ini sudah otomatis jalan lewat `docker compose up -d --build`, satu network, dan saling kenal lewat nama container (`ML_SERVICE_URL=http://ml-service:8000`, lihat [docker-compose.yml](docker-compose.yml)).
+
+Health check ML service:
+
+```sh
+curl http://localhost:8000/health
+```
+
+Source code ML ada di [assets/](assets/):
+
+| File | Fungsi |
+| --- | --- |
+| `b1k5_capstone_model.py` | Ekstraksi fitur dari data transaksi + load pipeline scaler/PCA/KMeans + prediksi segmen |
+| `ml_service.py` | FastAPI wrapper, expose `POST /predict` untuk dipanggil Go API |
+| `sync_segments.py` | Script batch/cron, manggil model secara langsung (tanpa lewat Go API) lalu POST ke `/api/segments/update` |
+
+**Catatan kualitas model**: model KMeans yang dipakai punya silhouette score ~0.14 (cluster overlap cukup tinggi, lihat `(Kasaran)_Capstone_K5_B1.ipynb`), dan 7 dari 17 fitur training (login frequency, durasi sesi, dll) tidak punya data di skema produksi sehingga diisi nilai default. Confidence yang dihasilkan endpoint prediksi karena itu cenderung lebih rendah dan kurang stabil dibanding nilai manual — cocok untuk demo, belum untuk keputusan bisnis nyata.
 
 ## Catatan Segmentasi
 
