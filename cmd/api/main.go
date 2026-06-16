@@ -45,6 +45,7 @@ func main() {
 		users.GET("/:id", middleware.RequireSelfOrRole("admin"), controller.GetUser)
 		users.GET("/:id/activity", middleware.RequireSelfOrRole("admin"), controller.GetUserActivityById)
 		users.GET("/:id/segment", middleware.RequireSelfOrRole("admin"), controller.GetUserSegmentationById)
+		users.POST("/:id/segment/predict", middleware.RequireSelfOrRole("admin"), controller.PredictAndUpdateUserSegment)
 	}
 
 	/*

@@ -1,13 +1,136 @@
 package controllers
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"B1K5-API/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
+
+type segmentPredictionResult struct {
+	CustomerID  string  `json:"customer_id"`
+	SegmentName string  `json:"segment_name"`
+	Description string  `json:"description"`
+	Confidence  float64 `json:"confidence"`
+}
+
+func PredictAndUpdateUserSegment(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	customer, err := getCustomerByIDParam(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, gin.H{
+				"error": "user not found",
+			})
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	activity, err := getUserActivityData(id)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	prediction, err := requestSegmentPrediction(customer.CustomerID, activity)
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{
+			"error": fmt.Sprintf("ml service request failed: %s", err.Error()),
+		})
+		return
+	}
+
+	tx, err := utils.DB.Begin()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	defer tx.Rollback()
+
+	segmentID, err := upsertSegment(tx, prediction.SegmentName, prediction.Description)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	action, err := upsertUserSegment(tx, customer.ID, segmentID, prediction.Confidence)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":      "segment predicted and updated",
+		"customer_id":  customer.CustomerID,
+		"segment_name": prediction.SegmentName,
+		"description":  prediction.Description,
+		"confidence":   prediction.Confidence,
+		"action":       action,
+	})
+}
+
+func requestSegmentPrediction(customerID string, activity userActivityData) (segmentPredictionResult, error) {
+	payload, err := json.Marshal(gin.H{
+		"user": gin.H{"customer_id": customerID},
+		"activity": gin.H{
+			"data": activity,
+		},
+	})
+	if err != nil {
+		return segmentPredictionResult{}, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, utils.MLServiceURL()+"/predict", bytes.NewReader(payload))
+	if err != nil {
+		return segmentPredictionResult{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return segmentPredictionResult{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return segmentPredictionResult{}, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	var result segmentPredictionResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return segmentPredictionResult{}, err
+	}
+
+	return result, nil
+}
 
 type updateUserSegmentsInput struct {
 	Segments []segmentUpdateInput `json:"segments"`

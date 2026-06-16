@@ -6,6 +6,7 @@ services:
       - "8080:8080"
     depends_on:
       - postgres
+      - ml-service
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -14,6 +15,16 @@ services:
       - DB_NAME=b1k5_api
       - DB_DRIVER=postgres
       - JWT_SECRET=b1k5-local-jwt-secret-change-me
+      - ML_SERVICE_URL=http://ml-service:8000
+    restart: unless-stopped
+
+  ml-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ml
+    container_name: b1k5-ml-service
+    ports:
+      - "8000:8000"
     restart: unless-stopped
 
   postgres:
