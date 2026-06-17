@@ -2,6 +2,36 @@
 
 API untuk Capstone Project kasus B1. Dikelola oleh Kelompok 5.
 
+## Daftar Isi
+- [API Capstone C1 - Kelompok 5](#api-capstone-c1---kelompok-5)
+  - [Daftar Isi](#daftar-isi)
+  - [Menjalankan Project](#menjalankan-project)
+  - [Auth](#auth)
+  - [Autentikasi](#autentikasi)
+    - [Register](#register)
+    - [Login](#login)
+  - [User](#user)
+    - [Get All Users](#get-all-users)
+    - [Get User](#get-user)
+    - [Get User Activity](#get-user-activity)
+    - [Get User Segment](#get-user-segment)
+  - [Personalisasi](#personalisasi)
+    - [Get Homepage Personalization](#get-homepage-personalization)
+  - [Rekomendasi](#rekomendasi)
+  - [Analitik](#analitik)
+    - [Get Analytics Metrics](#get-analytics-metrics)
+    - [Create Analytics Event](#create-analytics-event)
+  - [Dashboard](#dashboard)
+    - [Engagement Dashboard](#engagement-dashboard)
+    - [Performance Dashboard](#performance-dashboard)
+  - [Segment](#segment)
+    - [Update Manual / Batch](#update-manual--batch)
+    - [Prediksi Real-time (ML)](#prediksi-real-time-ml)
+  - [Status Code Umum](#status-code-umum)
+  - [Arsitektur ML](#arsitektur-ml)
+  - [Catatan Segmentasi](#catatan-segmentasi)
+
+
 ## Menjalankan Project
 
 Pastikan `Docker` dan `Docker Compose` sudah terpasang.
@@ -50,10 +80,10 @@ admin
 
 Aturan akses:
 
-| Role | Akses |
-| --- | --- |
-| `customer` | Hanya boleh mengakses data miliknya sendiri |
-| `admin` | Bisa mengakses semua user dan endpoint admin |
+| Role       | Akses                                        |
+| ---------- | -------------------------------------------- |
+| `customer` | Hanya boleh mengakses data miliknya sendiri  |
+| `admin`    | Bisa mengakses semua user dan endpoint admin |
 
 Admin seed:
 
@@ -438,13 +468,13 @@ Response:
 
 Catatan field:
 
-| Field | Keterangan |
-| --- | --- |
-| `impressions` | Jumlah event `recommendation_impression` / `recommendation_viewed` |
-| `clicks` | Jumlah event `recommendation_click` / `recommendation_clicked` |
-| `engagements` | Jumlah event `recommendation_engaged` / `feature_used` (user benar-benar memakai fitur) |
-| `ctr` | `(clicks / impressions) × 100`, dibulatkan 2 desimal |
-| `conversion_rate` | `(engagements / clicks) × 100`, dibulatkan 2 desimal |
+| Field             | Keterangan                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| `impressions`     | Jumlah event `recommendation_impression` / `recommendation_viewed`                      |
+| `clicks`          | Jumlah event `recommendation_click` / `recommendation_clicked`                          |
+| `engagements`     | Jumlah event `recommendation_engaged` / `feature_used` (user benar-benar memakai fitur) |
+| `ctr`             | `(clicks / impressions) × 100`, dibulatkan 2 desimal                                    |
+| `conversion_rate` | `(engagements / clicks) × 100`, dibulatkan 2 desimal                                    |
 
 ### Create Analytics Event
 
@@ -658,15 +688,15 @@ Response:
 
 ## Status Code Umum
 
-| Status | Arti |
-| --- | --- |
-| `200` | Request berhasil |
-| `201` | Data berhasil dibuat |
-| `400` | Request body tidak valid |
-| `401` | Token tidak ada, token tidak valid, atau login gagal |
-| `403` | Role tidak punya akses |
-| `404` | Data tidak ditemukan |
-| `500` | Error server/database |
+| Status | Arti                                                 |
+| ------ | ---------------------------------------------------- |
+| `200`  | Request berhasil                                     |
+| `201`  | Data berhasil dibuat                                 |
+| `400`  | Request body tidak valid                             |
+| `401`  | Token tidak ada, token tidak valid, atau login gagal |
+| `403`  | Role tidak punya akses                               |
+| `404`  | Data tidak ditemukan                                 |
+| `500`  | Error server/database                                |
 
 ## Arsitektur ML
 
@@ -686,11 +716,11 @@ curl http://localhost:8000/health
 
 Source code ML ada di [assets/](assets/):
 
-| File | Fungsi |
-| --- | --- |
-| `b1k5_capstone_model.py` | Ekstraksi fitur dari data transaksi + load pipeline scaler/PCA/KMeans + prediksi segmen |
-| `ml_service.py` | FastAPI wrapper, expose `POST /predict` untuk dipanggil Go API |
-| `sync_segments.py` | Script batch/cron, manggil model secara langsung (tanpa lewat Go API) lalu POST ke `/api/segments/update` |
+| File                     | Fungsi                                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `b1k5_capstone_model.py` | Ekstraksi fitur dari data transaksi + load pipeline scaler/PCA/KMeans + prediksi segmen                   |
+| `ml_service.py`          | FastAPI wrapper, expose `POST /predict` untuk dipanggil Go API                                            |
+| `sync_segments.py`       | Script batch/cron, manggil model secara langsung (tanpa lewat Go API) lalu POST ke `/api/segments/update` |
 
 **Catatan kualitas model**: model KMeans yang dipakai punya silhouette score ~0.14 (cluster overlap cukup tinggi, lihat `(Kasaran)_Capstone_K5_B1.ipynb`), dan 7 dari 17 fitur training (login frequency, durasi sesi, dll) tidak punya data di skema produksi sehingga diisi nilai default. Confidence yang dihasilkan endpoint prediksi karena itu cenderung lebih rendah dan kurang stabil dibanding nilai manual — cocok untuk demo, belum untuk keputusan bisnis nyata.
 
