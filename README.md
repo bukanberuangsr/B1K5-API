@@ -422,8 +422,9 @@ Response:
     "total_events": 10,
     "impressions": 6,
     "clicks": 2,
-    "engagements": 3,
-    "ctr": 0.3333333333333333
+    "engagements": 1,
+    "ctr": 33.33,
+    "conversion_rate": 50.0
   },
   "top_features": [
     {
@@ -434,6 +435,16 @@ Response:
   ]
 }
 ```
+
+Catatan field:
+
+| Field | Keterangan |
+| --- | --- |
+| `impressions` | Jumlah event `recommendation_impression` / `recommendation_viewed` |
+| `clicks` | Jumlah event `recommendation_click` / `recommendation_clicked` |
+| `engagements` | Jumlah event `recommendation_engaged` / `feature_used` (user benar-benar memakai fitur) |
+| `ctr` | `(clicks / impressions) × 100`, dibulatkan 2 desimal |
+| `conversion_rate` | `(engagements / clicks) × 100`, dibulatkan 2 desimal |
 
 ### Create Analytics Event
 
@@ -484,6 +495,90 @@ Response:
       "source": "homepage"
     },
     "created_at": "2026-05-26 10:00:00"
+  }
+}
+```
+
+## Dashboard
+
+Semua endpoint dashboard membutuhkan JWT dengan role `admin`.
+
+### Engagement Dashboard
+
+```http
+GET /api/dashboard/engagement
+```
+
+Menampilkan 4 metrik utama efektivitas rekomendasi: CTR, conversion rate, total klik minggu ini, dan top 3 fitur yang paling sering diklik.
+
+Response:
+
+```json
+{
+  "message": "engagement dashboard data retrieved successfully",
+  "data": {
+    "ctr": 54.55,
+    "conversion_rate": 50.0,
+    "total_clicks_this_week": 6,
+    "top_recommended_features": [
+      { "rank": 1, "feature": "tabungan_emas", "total_clicks": 3 },
+      { "rank": 2, "feature": "asuransi_jiwa", "total_clicks": 1 },
+      { "rank": 3, "feature": "reksa_dana",    "total_clicks": 1 }
+    ],
+    "period": "2026-06-10 to 2026-06-17"
+  }
+}
+```
+
+### Performance Dashboard
+
+```http
+GET /api/dashboard/performance?days=30
+```
+
+Query param `days` menentukan rentang waktu (default: `30`). Menampilkan breakdown per segment, hasil A/B test aktif, ROI rekomendasi, dan top 5 segment berdasarkan engagement rate.
+
+Response:
+
+```json
+{
+  "message": "dashboard performance data retrieved successfully",
+  "data": {
+    "overall_metrics": {
+      "total_customers": 6,
+      "active_customers": 5,
+      "engagement_rate": 0.83,
+      "avg_recommendation_ctr": 0,
+      "total_recommendations": 6,
+      "successful_recommendations": 0,
+      "date_range": "2026-05-18 to 2026-06-17"
+    },
+    "engagement_by_segment": [
+      {
+        "segment_name": "digital_spender",
+        "customer_count": 2,
+        "active_customers": 2,
+        "engagement_rate": 1,
+        "recommendation_impressions": 0,
+        "recommendation_clicks": 0,
+        "ctr": 0
+      }
+    ],
+    "ab_test_results": [],
+    "recommendation_roi": {
+      "total_recommendations": 9,
+      "clicked_recommendations": 2,
+      "roi_percentage": 22.22,
+      "estimated_value_idr": 20000
+    },
+    "top_performing_segments": [
+      {
+        "segment_name": "investor",
+        "engagement_rate": 1,
+        "customer_count": 1,
+        "rank": 1
+      }
+    ]
   }
 }
 ```
