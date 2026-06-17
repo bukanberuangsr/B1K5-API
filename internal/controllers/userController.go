@@ -9,13 +9,28 @@ import (
 )
 
 type userResponse struct {
-	ID         int    `json:"id"`
-	CustomerID string `json:"customer_id"`
-	Email      string `json:"email"`
-	Username   string `json:"username"`
-	FullName   string `json:"full_name"`
-	Role       string `json:"role"`
-	CreatedAt  string `json:"created_at"`
+	ID                        int    `json:"id"`
+	CustomerID                string `json:"customer_id"`
+	Email                     string `json:"email"`
+	Username                  string `json:"username"`
+	FullName                  string `json:"full_name"`
+	Role                      string `json:"role"`
+	IsActivityTrackingEnabled bool   `json:"is_activity_tracking_enabled"`
+	CreatedAt                 string `json:"created_at"`
+}
+
+type userWithSegmentResponse struct {
+	ID                        int     `json:"id"`
+	CustomerID                string  `json:"customer_id"`
+	Email                     string  `json:"email"`
+	Username                  string  `json:"username"`
+	FullName                  string  `json:"full_name"`
+	Role                      string  `json:"role"`
+	IsActivityTrackingEnabled bool    `json:"is_activity_tracking_enabled"`
+	CreatedAt                 string  `json:"created_at"`
+	Segment                   string  `json:"segment"`       // nama segment, kosong jika belum ada
+	Confidence                float64 `json:"confidence"`    // 0 jika belum ada segment
+	AssignedAt                string  `json:"assigned_at"`   // kosong jika belum ada
 }
 
 type segmentResponse struct {
@@ -46,6 +61,7 @@ func GetUser(ctx *gin.Context) {
 			COALESCE(c.username, ''),
 			COALESCE(cp.full_name, ''),
 			c.role,
+			c.is_activity_tracking_enabled,
 			c.created_at::text
 		FROM customers c
 		LEFT JOIN customer_profiles cp ON cp.customer_id = c.id
@@ -57,6 +73,7 @@ func GetUser(ctx *gin.Context) {
 		&user.Username,
 		&user.FullName,
 		&user.Role,
+		&user.IsActivityTrackingEnabled,
 		&user.CreatedAt,
 	)
 
@@ -92,6 +109,7 @@ func GetAllUsers(ctx *gin.Context) {
 			COALESCE(c.username, ''),
 			COALESCE(cp.full_name, ''),
 			c.role,
+			c.is_activity_tracking_enabled,
 			c.created_at::text
 		FROM customers c
 		LEFT JOIN customer_profiles cp ON cp.customer_id = c.id
@@ -116,6 +134,7 @@ func GetAllUsers(ctx *gin.Context) {
 			&user.Username,
 			&user.FullName,
 			&user.Role,
+			&user.IsActivityTrackingEnabled,
 			&user.CreatedAt,
 		); error != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -136,6 +155,74 @@ func GetAllUsers(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "all users",
+		"users":   users,
+	})
+}
+
+// GetAllUsersWithSegments mengembalikan semua user beserta segment aktif mereka.
+// Segment diambil berdasarkan confidence tertinggi.
+// GET /api/users/with-segments
+func GetAllUsersWithSegments(ctx *gin.Context) {
+	rows, err := utils.DB.Query(`
+		SELECT
+			c.id,
+			c.customer_id,
+			c.email,
+			COALESCE(c.username, ''),
+			COALESCE(cp.full_name, ''),
+			c.role,
+			c.is_activity_tracking_enabled,
+			c.created_at::text,
+			COALESCE(s.name, '')          AS segment,
+			COALESCE(us.confidence, 0)    AS confidence,
+			COALESCE(us.created_at::text, '') AS assigned_at
+		FROM customers c
+		LEFT JOIN customer_profiles cp ON cp.customer_id = c.id
+		LEFT JOIN LATERAL (
+			SELECT segment_id, confidence, created_at
+			FROM user_segments
+			WHERE customer_id = c.id
+			ORDER BY confidence DESC, created_at DESC
+			LIMIT 1
+		) us ON true
+		LEFT JOIN segments s ON s.id = us.segment_id
+		ORDER BY c.id ASC
+	`)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	users := []userWithSegmentResponse{}
+	for rows.Next() {
+		var u userWithSegmentResponse
+		if err := rows.Scan(
+			&u.ID,
+			&u.CustomerID,
+			&u.Email,
+			&u.Username,
+			&u.FullName,
+			&u.Role,
+			&u.IsActivityTrackingEnabled,
+			&u.CreatedAt,
+			&u.Segment,
+			&u.Confidence,
+			&u.AssignedAt,
+		); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "all users with segments",
+		"total":   len(users),
 		"users":   users,
 	})
 }
@@ -295,4 +382,61 @@ func getRecommendationsBySegmentID(segmentID int) ([]recommendationResponse, err
 	}
 
 	return recommendations, nil
+}
+
+type updateTrackingInput struct {
+	IsActivityTrackingEnabled *bool `json:"is_activity_tracking_enabled"`
+}
+
+// PUT /api/users/:id/tracking
+func UpdateActivityTracking(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	var input updateTrackingInput
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if input.IsActivityTrackingEnabled == nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "is_activity_tracking_enabled is required",
+		})
+		return
+	}
+
+	result, err := utils.DB.Exec(`
+		UPDATE customers
+		SET is_activity_tracking_enabled = $1
+		WHERE id::text = $2 OR customer_id = $2
+	`, *input.IsActivityTrackingEnabled, id)
+
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if rowsAffected == 0 {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "user not found",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":                      "activity tracking updated successfully",
+		"is_activity_tracking_enabled": *input.IsActivityTrackingEnabled,
+	})
 }

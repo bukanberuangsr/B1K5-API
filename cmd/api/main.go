@@ -6,12 +6,20 @@ import (
 	"B1K5-API/internal/utils"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	utils.InitDB()
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 
 	router.GET("/api/test", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
@@ -42,10 +50,12 @@ func main() {
 	users.Use(middleware.AuthMiddleware())
 	{
 		users.GET("/", middleware.RequireRole("admin"), controller.GetAllUsers)
+		users.GET("/with-segments", middleware.RequireRole("admin"), controller.GetAllUsersWithSegments)
 		users.GET("/:id", middleware.RequireSelfOrRole("admin"), controller.GetUser)
 		users.GET("/:id/activity", middleware.RequireSelfOrRole("admin"), controller.GetUserActivityById)
 		users.GET("/:id/segment", middleware.RequireSelfOrRole("admin"), controller.GetUserSegmentationById)
 		users.POST("/:id/segment/predict", middleware.RequireSelfOrRole("admin"), controller.PredictAndUpdateUserSegment)
+		users.PUT("/:id/tracking", middleware.RequireSelfOrRole("admin"), controller.UpdateActivityTracking)
 	}
 
 	/*
@@ -89,14 +99,18 @@ func main() {
 	{
 		dashboard.GET("/performance", middleware.RequireRole("admin"), controller.GetDashboardPerformance)
 		dashboard.GET("/engagement", middleware.RequireRole("admin"), controller.GetEngagementDashboard)
+		// Endpoint baru untuk dashboard frontend
+		dashboard.GET("/metrics", middleware.RequireRole("admin"), controller.GetDashboardMetrics)
+		dashboard.GET("/clicks-chart", middleware.RequireRole("admin"), controller.GetWeeklyClicksChart)
+		dashboard.GET("/top-features", middleware.RequireRole("admin"), controller.GetTopFeatures)
 	}
 
-	router.POST(
-		"/api/segments/update",
-		middleware.AuthMiddleware(),
-		middleware.RequireRole("admin"),
-		controller.UpdateUserSegments,
-	)
+	segments := router.Group("/api/segments")
+	segments.Use(middleware.AuthMiddleware())
+	{
+		segments.GET("/", middleware.RequireRole("admin"), controller.GetAllSegments)
+		segments.POST("/update", middleware.RequireRole("admin"), controller.UpdateUserSegments)
+	}
 
 	router.Run(":8080")
 }

@@ -303,3 +303,48 @@ func upsertUserSegment(tx *sql.Tx, customerID int, segmentID int, confidence flo
 
 	return "inserted", nil
 }
+
+type segmentMasterResponse struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func GetAllSegments(ctx *gin.Context) {
+	rows, err := utils.DB.Query(`
+		SELECT id, name, COALESCE(description, '') 
+		FROM segments 
+		ORDER BY id ASC
+	`)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	defer rows.Close()
+
+	var segments []segmentMasterResponse
+	for rows.Next() {
+		var s segmentMasterResponse
+		if err := rows.Scan(&s.ID, &s.Name, &s.Description); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+		segments = append(segments, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "all segments",
+		"data":    segments,
+	})
+}
