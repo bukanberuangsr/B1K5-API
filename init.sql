@@ -79,3 +79,58 @@ CREATE INDEX idx_accounts_customer ON accounts(customer_id);
 CREATE INDEX idx_transactions_account ON transactions(account_id);
 CREATE INDEX idx_user_segments_customer ON user_segments(customer_id);
 CREATE INDEX idx_analytics_customer ON analytics_events(customer_id);
+
+-- DASHBOARD
+-- Tabel untuk A/B Testing
+CREATE TABLE ab_tests (
+    id SERIAL PRIMARY KEY,
+    test_name VARCHAR(100) NOT NULL,
+    feature VARCHAR(100) NOT NULL,
+    variant_a VARCHAR(255) NOT NULL,
+    variant_b VARCHAR(255) NOT NULL,
+    start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    end_date TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'active', -- active, completed, paused
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Mapping customer ke A/B test variant
+CREATE TABLE ab_test_assignments (
+    id SERIAL PRIMARY KEY,
+    customer_id INT REFERENCES customers(id) ON DELETE CASCADE,
+    ab_test_id INT REFERENCES ab_tests(id) ON DELETE CASCADE,
+    variant VARCHAR(10) NOT NULL, -- 'A' atau 'B'
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(customer_id, ab_test_id)
+);
+
+-- Tabel engagement metrics per segment
+CREATE TABLE engagement_metrics (
+    id SERIAL PRIMARY KEY,
+    segment_id INT REFERENCES segments(id) ON DELETE CASCADE,
+    metric_date DATE DEFAULT CURRENT_DATE,
+    total_customers INT DEFAULT 0,
+    active_customers INT DEFAULT 0,
+    recommendation_impressions INT DEFAULT 0,
+    recommendation_clicks INT DEFAULT 0,
+    engagement_rate FLOAT,
+    feature VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(segment_id, metric_date, feature)
+);
+
+-- Performance personalisasi & rekomendasi
+CREATE TABLE personalization_performance (
+    id SERIAL PRIMARY KEY,
+    segment_id INT REFERENCES segments(id),
+    date_period DATE DEFAULT CURRENT_DATE,
+    total_recommendations INT,
+    clicked_recommendations INT,
+    avg_response_time FLOAT,
+    customer_satisfaction FLOAT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_ab_tests_status ON ab_tests(status);
+CREATE INDEX idx_engagement_segment_date ON engagement_metrics(segment_id, metric_date);
+CREATE INDEX idx_personalization_date ON personalization_performance(date_period);

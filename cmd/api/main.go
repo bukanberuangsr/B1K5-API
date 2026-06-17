@@ -84,6 +84,13 @@ func main() {
 		analytics.POST("/event", controller.CreateAnalyticsEvent)
 	}
 
+	dashboard := router.Group("/api/dashboard")
+	dashboard.Use(middleware.AuthMiddleware())
+	{
+		dashboard.GET("/performance", middleware.RequireRole("admin"), controller.GetDashboardPerformance)
+		dashboard.GET("/engagement", middleware.RequireRole("admin"), controller.GetEngagementDashboard)
+	}
+
 	router.POST(
 		"/api/segments/update",
 		middleware.AuthMiddleware(),

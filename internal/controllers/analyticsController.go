@@ -3,6 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"encoding/json"
+	"math"
 	"net/http"
 
 	"B1K5-API/internal/utils"
@@ -18,11 +19,12 @@ type createAnalyticsEventInput struct {
 }
 
 type analyticsMetricResponse struct {
-	TotalEvents int     `json:"total_events"`
-	Impressions int     `json:"impressions"`
-	Clicks      int     `json:"clicks"`
-	Engagements int     `json:"engagements"`
-	CTR         float64 `json:"ctr"`
+	TotalEvents    int     `json:"total_events"`
+	Impressions    int     `json:"impressions"`
+	Clicks         int     `json:"clicks"`
+	Engagements    int     `json:"engagements"`
+	CTR            float64 `json:"ctr"`
+	ConversionRate float64 `json:"conversion_rate"`
 }
 
 type featureMetricResponse struct {
@@ -159,7 +161,7 @@ func getAnalyticsMetricSummary() (analyticsMetricResponse, error) {
 				WHERE event_type IN ('recommendation_click', 'recommendation_clicked')
 			)::int AS clicks,
 			COUNT(*) FILTER (
-				WHERE event_type IN ('recommendation_click', 'recommendation_clicked', 'recommendation_engaged')
+				WHERE event_type IN ('recommendation_engaged', 'feature_used')
 			)::int AS engagements
 		FROM analytics_events
 	`).Scan(
@@ -173,7 +175,11 @@ func getAnalyticsMetricSummary() (analyticsMetricResponse, error) {
 	}
 
 	if metrics.Impressions > 0 {
-		metrics.CTR = float64(metrics.Clicks) / float64(metrics.Impressions)
+		metrics.CTR = math.Round((float64(metrics.Clicks)/float64(metrics.Impressions))*10000) / 100
+	}
+
+	if metrics.Clicks > 0 {
+		metrics.ConversionRate = math.Round((float64(metrics.Engagements)/float64(metrics.Clicks))*10000) / 100
 	}
 
 	return metrics, nil
