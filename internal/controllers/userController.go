@@ -92,11 +92,12 @@ func GetUser(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message":    "user found",
-		"email":      user.Email,
-		"username":   user.Username,
-		"role":       user.Role,
-		"created_at": user.CreatedAt,
+		"message":                      "user found",
+		"email":                        user.Email,
+		"username":                     user.Username,
+		"role":                         user.Role,
+		"is_activity_tracking_enabled": user.IsActivityTrackingEnabled,
+		"created_at":                   user.CreatedAt,
 	})
 }
 
